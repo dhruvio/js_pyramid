@@ -1,0 +1,37 @@
+{
+  "name": "pyramid",
+  "version": "1.0.0",
+  "description": "Composable web UI framework.",
+  "main": "index.js",
+  "scripts": {
+    "build": "mkdir -p build; rm -rf build/*; npm run build-node-min; npm run build-umd-min;",
+    "build-node": "./node_modules/.bin/browserify index.js -o build/pyramid.node.js -t [ babelify --presets [ latest ] ]",
+    "build-node-min": "npm run build-node; ./node_modules/.bin/uglifyjs build/pyramid.node.js -o build/pyramid.node.min.js",
+    "build-umd": "./node_modules/.bin/browserify index.js -o build/pyramid.umd.js -s pyramid -t [ babelify --presets [ latest ] ]",
+    "build-umd-min": "npm run build-umd; ./node_modules/.bin/uglifyjs build/pyramid.umd.js -o build/pyramid.umd.min.js",
+    "test": "cd tests && ./build.sh && echo \"Open tests/index.html in a web browser.\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dhruvio/js_pyramid.git"
+  },
+  "author": "Dhruv Dang",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/dhruvio/js_pyramid/issues"
+  },
+  "homepage": "https://github.com/dhruvio/js_pyramid#readme",
+  "dependencies": {
+    "dom-delegator": "^13.1.0",
+    "global": "^4.3.1",
+    "immutable": "^3.8.1",
+    "lodash": "^4.17.2",
+    "virtual-dom": "^2.1.1"
+  },
+  "devDependencies": {
+    "babel-preset-latest": "^6.22.0",
+    "babelify": "^7.3.0",
+    "browserify": "^13.1.1",
+    "uglify-js": "^2.7.5"
+  }
+}
