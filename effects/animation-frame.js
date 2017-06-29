@@ -2,7 +2,7 @@
 
 const window = require("global/window");
 
-module.exports = function make (actionName = "animationFrame") {
+module.exports = function (actionName = "animationFrame") {
 
   let request = null;
 
@@ -13,7 +13,7 @@ module.exports = function make (actionName = "animationFrame") {
     });
   }
 
-  return function effect (state, update) {
+  return function (state, update) {
     if (!request)
       request = run(frame => update("animationFrame", { frame }));
   };

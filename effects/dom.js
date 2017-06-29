@@ -7,13 +7,13 @@ const patch        = require("../patch");
 const diff         = require("../diff");
 const create       = require("../create-element");
 
-module.exports = function make (render, element) {
+module.exports = function (render, element) {
 
   let tree;
   let root;
   let initialized = false;
 
-  return function effect (state, update) {
+  return function (state, update) {
     // convert immutable state to JS object
     state = state.toJS();
     if (!initialized) {
@@ -29,7 +29,7 @@ module.exports = function make (render, element) {
       // only run the initialization once
       initialized = true;
     } else {
-      // diff and persist changed to the virtual app tree
+      // diff and persist changes to the virtual app tree
       const newTree = render(state, update);
       const patches = diff(tree, newTree);
       root = patch(root, patches);
