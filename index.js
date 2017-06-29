@@ -50,13 +50,13 @@ function initializeState (init) {
 function loop (actions = {}, effects = [], state) {
   // set up a promise to thread state updates through in order
   let promise = Promise.resolve(state);
+  // create closure variables to maintain state updates
+  const updateQueue = []; // [ { actionName: String, data: a } ]
+  let flushScheduled = false; // switch to manage whether queue flushing is required
   // helper to run effects
   function runEffects (state) {
     effects.forEach(effect => effect(state, update));
   }
-  // create closure variables to maintain state updates
-  const updateQueue = []; // [ { actionName: String, data: a } ]
-  let flushScheduled = false; // switch to manage whether queue flushing is required
   // set up the update function to persist state updates
   function update (actionName, data) {
     // push action to queue
@@ -90,26 +90,6 @@ function loop (actions = {}, effects = [], state) {
                          return state;
                        });
     }
-    // update the promise state to reflect the latest update
-    //promise = promise.then(state =t> {
-                       //// lookup and validate the action
-                       //const action = actions[actionName];
-                       //if (!isFunction(action)) {
-                         //log.warn("invalid action", { actionName, action });
-                         //// return unmodified state
-                         //return state;
-                       //}
-                       //// run the action
-                       //return action(state, data);
-                     //})
-                     //.then(state => {
-                       ////TODO
-                         //// maybe compare old/new state
-                         //// if no change, don't propagate to effects?
-                       //// disperse the new state to the effects
-                       //runEffects(state);
-                       //return state;
-                     //});
   }
   // run the initial round of effects
   runEffects(state);
