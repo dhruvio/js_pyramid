@@ -1,5 +1,6 @@
 "use strict";
 
 module.exports = [
-  require("./counter")
+  require("./counter"),
+  require("./todo")
 ];

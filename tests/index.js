@@ -2,7 +2,7 @@
 
 const document   = require("global/document");
 const pyramid    = require("../");
-const h          = require("../h");
+const h          = require("../helpers/h");
 const log        = require("../services/logger")("tests");
 const components = require("./components");
 

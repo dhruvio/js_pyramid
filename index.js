@@ -13,7 +13,6 @@ const immutable     = require("immutable");
 const dom           = require("./effects/dom");
 
 const log     = require("./services/logger")("pyramid");
-const h       = require("./h");
 const Promise = window.Promise;
 
 module.exports = bind;
@@ -68,6 +67,8 @@ function loop (actions = {}, effects = [], state) {
       // flush queue in the promise thread
       // and run state effects if no further updates are flushScheduled
       promise = promise.then(state => {
+                         // cache initial state
+                         const initialState = state;
                          // flush the update queue
                          for (let i = 0; i < updateQueue.length; i++) {
                            // lookup and validate the action
@@ -82,11 +83,16 @@ function loop (actions = {}, effects = [], state) {
                          }
                          // reset flushScheduled state
                          flushScheduled = false;
-                         return state;
+                         // return state, and boolean indicating if state has changed
+                         return {
+                           state,
+                           changed: !state.equals(initialState)
+                         };
                        })
-                       .then(state => {
-                         // run effects with state 
-                         runEffects(state);
+                       .then(({ state, changed }) => {
+                         // run effects with state if required
+                         if (changed) runEffects(state);
+                         // return state to thread through promise
                          return state;
                        });
     }

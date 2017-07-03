@@ -1,54 +1,27 @@
 "use strict";
 
-/*
+// TODO
+// validate all routes
+// documentation
+// try code cleanup
 
-current/incoming route:
-
-{ status: STATUS, path: "", hash: "", query: {}, params: {}, state: {}, render() }
-
-incoming route may be null (i.e. not in transition)
-
----
-
-routes:
-
-[
-  { pattern: "/", component: { init, actions, effects, render } },
-  { pattern: "/users", component: { init, actions, effects, render } },
-  { pattern: "/users/:id", component: { init, actions, effects, render } },
-  { pattern: "*", component: { init, actions, effects, render } } // 404
-]
-
---- transition stages
-
-NOTE: need to maintain internally which stage we are at with the ongoing transition
-
-// startNavigation action (internal)
-1. start navigation // c user, d effect
-
-// handleNavigation action (user-defined)
-2. exiting current route // c effect, d user
-3. entering incoming route // c effect, d user
-
-// user-defined actions
-// happens at some point when the user is ready for the routes to transition
-4. inactive current route // set by user
-5. active incoming route // set by user
-
-// finishNavigation action (internal)
-6. set current route to incoming route // c effect, d effect
-7. set incoming route to null // c effect, d effect
-8. stop navigation // c effect, d effect
-
-*/
+// imports
 
 const window        = require("global/window");
 const immutable     = require("immutable");
+const pathToRegexp  = require("path-to-regexp");
+const url           = require("url");
 const noop          = require("lodash/noop");
 const isPlainObject = require("lodash/isPlainObject");
 const isArray       = require("lodash/isArray");
 const isString      = require("lodash/isString");
+const isBoolean     = require("lodash/isBoolean");
+const delegate      = require("../helpers/delegate");
 const log           = require("../services/logger")("pyramid:effects:router");
+
+// closure state
+
+let keyCounter = 0;
 
 // set up public symbols enum
 
@@ -65,6 +38,7 @@ const ACTION_START_NAVIGATION  = make.symbols.ACTION_START_NAVIGATION  = makeKey
 const ACTION_FINISH_NAVIGATION = make.symbols.ACTION_FINISH_NAVIGATION = makeKey();
 const ACTION_HANDLE_NAVIGATION = make.symbols.ACTION_HANDLE_NAVIGATION = makeKey();
 const ACTION_CURRENT_ROUTE     = make.symbols.ACTION_CURRENT_ROUTE     = makeKey();
+const ACTION_INCOMING_ROUTE    = make.symbols.ACTION_INCOMING_ROUTE    = makeKey();
 // state
 const STATE_CURRENT_ROUTE      = make.symbols.STATE_CURRENT_ROUTE      = makeKey();
 const STATE_INCOMING_ROUTE     = make.symbols.STATE_INCOMING_ROUTE     = makeKey();
@@ -76,78 +50,13 @@ const STATE_INITIALIZED     = makeKey();
 const STATE_TRANSITION_LOCK = makeKey();
 const STATE_CREATE_ROUTE    = makeKey();
 
-// set up public actions dict
+// export effect
 
-// TODO
-function navigate (update, path) {
-  update(ACTION_START_NAVIGATION, { path });
-}
+module.exports = make;
 
-function routeUpdate (update, parentActionName, childActionName, data) {
-  update(parentActionName, { childActionName, data });
-}
-// TODO
+// define effect
 
-make.actions = {};
-
-make.actions[ACTION_INITIALIZE] = function (state, { routes }) {
-  // if already initialized, abort
-  if (state.get(STATE_INITIALIZED) === true)
-    return state;
-  // otherwise initialize the router state
-  return state.set(STATE_TRANSITION_LOCK, false)
-              .set(STATE_CURRENT_ROUTE, sourceRouteFromURL(routes))
-              .set(STATE_INCOMING_ROUTE, null)
-              .set(STATE_CREATE_ROUTE, path => createRoute(routes, path, STATUS_ENTERING))
-              .set(STATE_INITIALIZED, true);
-};
-
-make.actions[ACTION_START_NAVIGATION] = function (state, { path }) {
-  // validate path
-  if (!isString(path)) {
-    log.error("data.path must be a string", { path })
-    return state;
-  }
-  // if transition is currently happening, abort
-  const transitionLock = state.get(STATE_TRANSITION_LOCK);
-  if (transitionLock) {
-    log.warn("transition is taking place, aborting navigation", { path, existingTransition });
-    return state;
-  }
-  // kick off the navigation process
-  // update current route
-  let currentRoute = state.get(STATE_CURRENT_ROUTE);
-  currentRoute = currentRoute.set("status", STATUS_EXITING);
-  // create incoming route
-  const incomingRoute = state.get(STATE_CREATE_ROUTE)(path);
-  // propagate state changes
-  return state.set(STATE_TRANSITION_LOCK, true)
-              .set(STATE_CURRENT_ROUTE, currentRoute)
-              .set(STATE_INCOMING_ROUTE, incomingRoute); 
-};
-
-make.actions[ACTION_FINISH_NAVIGATION] = function (state) {
-  const incomingRoute = state.get(STATE_INCOMING_ROUTE);
-  pushState(incomingRoute.get("path")); // maybe do this in the effect function instead of an action
-  return state.set(STATE_TRANSITION_LOCK, false)
-              .set(STATE_CURRENT_ROUTE, incomingRoute)
-              .set(STATE_INCOMING_ROUTE, null);
-};
-
-make.actions[ACTION_CURRENT_ROUTE] = function (state, { actionName, data }) {
-  let currentRoute = state.get(STATE_CURRENT_ROUTE);
-  const actions = currentRoute.get("component")
-                              .get("actions");
-  const action = actions.get(actionName);
-  if (action) {
-    const newRouteState = state.action(currentRoute.get("state"), data);
-    currentRoute = currentRoute.set("state", newRouteState);
-    state = state.set(STATE_CURRENT_ROUTE, currentRoute);
-  }
-  return state;
-};
-
-module.exports = function make ({ routes, useHash = true }) {
+function make ({ routes, useHash = true }) {
 
   // validate arguments
 
@@ -165,8 +74,8 @@ module.exports = function make ({ routes, useHash = true }) {
     valid = false;
   }
 
-  if (!isBool(pushState)) {
-    log.error("options.pushState must be a plain object", { pushState });
+  if (!isBoolean(useHash)) {
+    log.error("options.useHash must be a boolean", { useHash });
     valid = false;
   }
 
@@ -176,65 +85,208 @@ module.exports = function make ({ routes, useHash = true }) {
     return noop;
   }
 
+  // cache regular expressions on routes
+  routes.forEach(route => {
+    route.keys = [];
+    route.regexp = pathToRegexp(route.pattern, route.keys);
+  });
+
   // return effect handler
 
   return function (state, update) {
+
     // initialize the router state if necessary
     // and abort
     const initialized = state.get(STATE_INITIALIZED);
-    if (!initialized)
-      return update(ACTION_INITIALIZE, { routes });
+    if (!initialized) {
+      // handle popstate events
+      window.onpopstate = function (event) {
+        update(ACTION_START_NAVIGATION, {
+          path: event.state.path, // path stored when state is "pushed"
+          isPopState: true
+        });
+      };
+      // run state initialization
+      return update(ACTION_INITIALIZE, { update, routes });
+    }
+
     // handle navigation, if required
     const transitionLock = state.get(STATE_TRANSITION_LOCK);
-    const currentRouteStatus = state.get(STATE_CURRENT_ROUTE)
-                                    .get("status");
-    const incomingRouteStatus = state.get(STATE_INCOMING_ROUTE)
-                                     .get("status");
-    if (transitionLock && currentRouteStatus === STATUS_EXITING && incomingRouteStatus === STATUS_ENTERING)
-      update(ACTION_HANDLE_NAVIGATION);
-    // otherwise, finish navigation, if required
-    else if (transitionLock && currentRouteStatus === STATUS_INACTIVE && incomingRouteStatus === STATUS_ACTIVE)
-      update(ACTION_FINISH_NAVIGATION);
+    const currentRoute = state.get(STATE_CURRENT_ROUTE);
+    const incomingRoute = state.get(STATE_INCOMING_ROUTE);
+    if (transitionLock && currentRoute && incomingRoute) {
+      const currentRouteStatus = currentRoute.get("status");
+      const incomingRouteStatus = incomingRoute.get("status");
+      if (currentRouteStatus === STATUS_EXITING && incomingRouteStatus === STATUS_ENTERING)
+        update(ACTION_HANDLE_NAVIGATION);
+
+      // otherwise, finish navigation, if required
+      else if (currentRouteStatus === STATUS_INACTIVE && incomingRouteStatus === STATUS_ACTIVE)
+        update(ACTION_FINISH_NAVIGATION, { update });
+    }
+
     // propagate state to the current route's effects
-    const effects = state.get(STATE_CURRENT_ROUTE)
-                         .get("component")
-                         .get("effects");
+    const effects = currentRoute.get("component").get("effects");
     if (effects && effects.forEach)
       effects.forEach(effect => effect(state, update));
+
   };
+
+};
+
+// set up public actions dict
+
+make.actions = {};
+
+make.actions.ACTION_INITIALIZE = function (state, { update, routes }) {
+  // if already initialized, abort
+  if (state.get(STATE_INITIALIZED) === true)
+    return state;
+  // source the current route from the URL
+  // if it hasn't been defined, throw an error
+  const currentRoute = sourceRouteFromURL(routes, update);
+  if (!currentRoute)
+    throw new window.Error(`No route defined for ${window.location.href}`);
+  // otherwise initialize the router state
+  return state.set(STATE_TRANSITION_LOCK, false)
+              .set(STATE_CURRENT_ROUTE, currentRoute)
+              .set(STATE_INCOMING_ROUTE, null)
+              .set(STATE_CREATE_ROUTE, (path, isPopState) => createRoute(routes, path, STATUS_ENTERING, ACTION_INCOMING_ROUTE, update, isPopState))
+              .set(STATE_INITIALIZED, true);
+};
+
+make.actions.ACTION_START_NAVIGATION = function (state, { path, isPopState = false }) {
+  // validate path
+  if (!isString(path)) {
+    log.error("data.path must be a string", { path })
+    return state;
+  }
+  // if transition is currently happening, abort
+  const transitionLock = state.get(STATE_TRANSITION_LOCK);
+  if (transitionLock) {
+    log.warn("transition is taking place, aborting navigation", { path });
+    return state;
+  }
+  // kick off the navigation process
+  // update current route
+  let currentRoute = state.get(STATE_CURRENT_ROUTE);
+  currentRoute = currentRoute.set("status", STATUS_EXITING);
+  // create incoming route
+  const incomingRoute = state.get(STATE_CREATE_ROUTE)(path, isPopState);
+  // propagate state changes
+  return state.set(STATE_TRANSITION_LOCK, true)
+              .set(STATE_CURRENT_ROUTE, currentRoute)
+              .set(STATE_INCOMING_ROUTE, incomingRoute); 
+};
+
+make.actions.ACTION_FINISH_NAVIGATION = function (state, { update }) {
+  let incomingRoute = state.get(STATE_INCOMING_ROUTE);
+  // push state as long as the incoming route is not
+  // the consequence of a popstate event
+  if (!incomingRoute.get("isPopState"))
+    pushState(incomingRoute.get("path")); // maybe do this in the effect function instead of an action
+  // change the update function for incoming route
+  // as it will become the current route
+  incomingRoute = incomingRoute.set("update", delegate.bind(null, update, ACTION_CURRENT_ROUTE));
+  return state.set(STATE_TRANSITION_LOCK, false)
+              .set(STATE_CURRENT_ROUTE, incomingRoute)
+              .set(STATE_INCOMING_ROUTE, null);
+};
+
+make.actions.ACTION_CURRENT_ROUTE = routeActionHandler.bind(null, STATE_CURRENT_ROUTE);
+
+make.actions.ACTION_INCOMING_ROUTE = routeActionHandler.bind(null, STATE_INCOMING_ROUTE);
+
+// export function to navigate
+
+make.navigate = function (update, path) {
+  update(ACTION_START_NAVIGATION, { path });
 };
 
 // helper functions
 
-const keyCounter = 0;
 function makeKey () {
   return "_EFFECT_ROUTER_" + keyCounter++;
 }
 
-function createRoute (routes, path, status) {
-  const { pattern, params, query, hash, component } = matchPath(routes, path);
-  return Immutable.fromJS({
+function createRoute (routes, path, status, parentActionName, update, isPopState = false) {
+  // find the route that matches the given path
+  const match = matchPath(routes, path); 
+  // if no match exists, return null
+  // null is the default empty value for routes
+  if (!match)
+    return null
+  // if a match exists,
+  // create the route object for the state
+  const { pattern, params, url, component } = match;
+  return immutable.fromJS({
     status,
     path,
     params,
-    query,
-    hash,
+    url,
     pattern, // use pattern as ID
     component,
-    state: component.init({ path, params, query, hash })
+    update: delegate.bind(null, update, parentActionName),
+    state: component.init({ path, params, url }),
+    isPopState
   });
 }
 
 function matchPath (routes, path) {
-
+  // find route that matches
+  for (let i = 0; i < routes.length; i++) {
+    const route = routes[i];
+    const match = path.match(route.regexp);
+    if (match) {
+      // create params object
+      const paramValues = match.slice(1);
+      const params = paramValues.reduce((params, value, i) => {
+        params[route.keys[i].name] = value;
+        return params;
+      }, {});
+      // return matched route info
+      return {
+        params,
+        pattern: route.pattern,
+        url: url.parse(path, true),
+        component: route.component
+      };
+    }
+  }
+  // no route found
+  return null;
 }
 
-function sourceRouteFromURL (routes) {
+function sourceRouteFromURL (routes, update) {
+  // determine the path
   const path = window.location.href.replace(window.location.origin, "");
-  return createRoute(routes, path, STATUS_ACTIVE);
+  // set the state object on the current history entry
+  // on a fresh page load, coming "back" to this page
+  // should work by ensuring the path is in the entry's
+  // state object
+  replaceState(path);
+  // return the route object for state persistence
+  return createRoute(routes, path, STATUS_ACTIVE, ACTION_CURRENT_ROUTE, update);
 }
 
 function pushState (path) {
   if (window.history && window.history.pushState)
-    window.history.pushState(path);
+    window.history.pushState({ path }, "", path);
+}
+
+function replaceState (path) {
+  if (window.history && window.history.replaceState)
+    window.history.replaceState({ path }, "", path);
+}
+
+function routeActionHandler (routeKey, state, { actionName, data }) {
+  let route = state.get(routeKey);
+  const actions = route.get("component").get("actions");
+  const action = actions.get(actionName);
+  if (action) {
+    const newRouteState = state.action(route.get("state"), data);
+    route = route.set("state", newRouteState);
+    state = state.set(routeKey, route);
+  }
+  return state;
 }
