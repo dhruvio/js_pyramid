@@ -1,8 +1,11 @@
 "use strict";
 
-const router = require("../../../effects/router");
-const TodoList = require("./routes/todo-list");
-const Todo = require("./routes/todo");
+const router         = require("../../../effects/router");
+const routerSymbols  = require("../../../effects/router/symbols");
+const routerActions  = require("../../../effects/router/actions");
+const routerNavigate = require("../../../effects/router/navigate");
+const TodoList       = require("./routes/todo-list");
+const Todo           = require("./routes/todo");
 
 function component (h, log) {
 
@@ -15,20 +18,20 @@ function component (h, log) {
   const actions = {
 
     // attach pre-defined router actions
-    [router.symbols.ACTION_INITIALIZE]: router.actions.ACTION_INITIALIZE,
-    [router.symbols.ACTION_START_NAVIGATION]: router.actions.ACTION_START_NAVIGATION,
-    [router.symbols.ACTION_FINISH_NAVIGATION]: router.actions.ACTION_FINISH_NAVIGATION,
-    [router.symbols.ACTION_CURRENT_ROUTE]: router.actions.ACTION_CURRENT_ROUTE,
-    [router.symbols.ACTION_INCOMING_ROUTE]: router.actions.ACTION_INCOMING_ROUTE,
+    [routerSymbols.ACTION_INITIALIZE]: routerActions.ACTION_INITIALIZE,
+    [routerSymbols.ACTION_START_NAVIGATION]: routerActions.ACTION_START_NAVIGATION,
+    [routerSymbols.ACTION_FINISH_NAVIGATION]: routerActions.ACTION_FINISH_NAVIGATION,
+    [routerSymbols.ACTION_CURRENT_ROUTE]: routerActions.ACTION_CURRENT_ROUTE,
+    [routerSymbols.ACTION_INCOMING_ROUTE]: routerActions.ACTION_INCOMING_ROUTE,
 
     // handle route transitions
-    [router.symbols.ACTION_HANDLE_NAVIGATION]: function (state) {
-      const CR = router.symbols.STATE_CURRENT_ROUTE;
-      const IR = router.symbols.STATE_INCOMING_ROUTE;
+    [routerSymbols.ACTION_HANDLE_NAVIGATION]: function (state) {
+      const CR = routerSymbols.STATE_CURRENT_ROUTE;
+      const IR = routerSymbols.STATE_INCOMING_ROUTE;
       var current = state.get(CR);
       var incoming = state.get(IR);
-      current = current.set("status", router.symbols.STATUS_INACTIVE);
-      incoming = incoming.set("status", router.symbols.STATUS_ACTIVE);
+      current = current.set("status", routerSymbols.STATUS_INACTIVE);
+      incoming = incoming.set("status", routerSymbols.STATUS_ACTIVE);
       return state.set(CR, current).set(IR, incoming);
     }
 
@@ -51,9 +54,9 @@ function component (h, log) {
 
   function render (state, update) {
     log.info("render", state);
-    const navigate = router.navigate.bind(null, update);
-    const currentRoute = state[router.symbols.STATE_CURRENT_ROUTE];
-    const incomingRoute = state[router.symbols.STATE_INCOMING_ROUTE];
+    const navigate = routerNavigate.bind(null, update);
+    const currentRoute = state[routerSymbols.STATE_CURRENT_ROUTE];
+    const incomingRoute = state[routerSymbols.STATE_INCOMING_ROUTE];
     if (!currentRoute)
       return h("div", "No route present");
     else 
