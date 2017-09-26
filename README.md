@@ -88,7 +88,7 @@ The state initialization function. It accepts no arguments and returns a plain J
 
 ##### `actions: Object`
 
-A plain object. Each key must be a string (i.e. an action's name), and each value must be of `action (state: ImmutableState, data: Any): ImmutableState`. Pyramid creates an [update](#update) function that, when called, triggers an action specified in this object. The action is called with the current state and any data specified during the `update` function call. The value returned from the action must be the new state to replace the entire component's state.
+A plain object. Each key must be a string (i.e. an action's name), and each value must be of `action (state: ImmutableState, data: Any): ImmutableState`. Pyramid creates an [update function](#updatefunction) that, when called, triggers an action specified in this object. The action is called with the current state and any data specified during the `update` function call. The value returned from the action must be the new state to replace the entire component's state.
 
 ##### `effects: [effect (state: ImmutableState, update: UpdateFunction): Undefined]`
 
