@@ -1,6 +1,6 @@
 # Pyramid
 
-Pyramid is a composable web UI framework. It is based on the [Elm architecture](), and is implemented in JavaScript, utilising the [virtual-dom]() library for rendering, and [ImmutableJS]() for state management.
+Pyramid is a composable web UI framework. It is based on the [Elm architecture](https://guide.elm-lang.org/architecture/), and is implemented in JavaScript, utilising the [virtual-dom](https://github.com/Matt-Esch/virtual-dom) library for rendering, and [ImmutableJS](https://github.com/facebook/immutable-js) for state management.
 
 The main goal of this framework is to provide a minimal API to build applications with unidirectional data flow. The struggle of implementing such a framework in JavaScript is that the language is dynamic, and its data structures are mutable. By utilising the Elm architecture and ImmutableJS, Pyramid components are have four parts: state initialization (`init`), state mutation (`actions`), rendering (`render`), and side-effects (`effects`). If you are coming from building applications with React, Mercury, or Elm, most, if not all, of this will be familiar to you. The most foreign concept may be the notion of side-effects. The idea behind side-effects is to organise code that interacts with the browser's API into one section of your component, as opposed to making pure parts of your application impure. As the documentation for this framework improves over time, the role of effects will become more apparent.
 
@@ -96,7 +96,7 @@ A list of functions that receive the current state and an update function to tri
 
 On a related note, the entire render cycle is implemented as an effect internal to Pyramid!
 
-##### `render (state: ImmutableState, update: UpdateFunction): VTree
+##### `render (state: ImmutableState, update: UpdateFunction): VTree`
 
 A function that receive the current state and an update function to trigger state mutations. The function is expected to return a `virtual-dom` VTree, typically created with the library's `h` function.
 
