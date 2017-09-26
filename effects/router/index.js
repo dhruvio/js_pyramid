@@ -1,8 +1,7 @@
-
+"use strict";
 // TODO
 // validate all routes
 // documentation
-// try code cleanup
 
 // imports
 
