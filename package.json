@@ -1,5 +1,5 @@
 {
-  "name": "pyramid",
+  "name": "@dhruvio/pyramid",
   "version": "1.0.0",
   "description": "Composable web UI framework.",
   "main": "index.js",
