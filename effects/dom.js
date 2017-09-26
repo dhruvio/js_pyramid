@@ -3,9 +3,9 @@
 // intended for internal use only
 
 const domDelegator = require("dom-delegator");
-const patch        = require("../patch");
-const diff         = require("../diff");
-const create       = require("../create-element");
+const patch        = require("../helpers/patch");
+const diff         = require("../helpers/diff");
+const create       = require("../helpers/create-element");
 
 module.exports = function (render, element) {
 

@@ -26,6 +26,7 @@
     "global": "^4.3.1",
     "immutable": "^3.8.1",
     "lodash": "^4.17.2",
+    "path-to-regexp": "^1.7.0",
     "virtual-dom": "^2.1.1"
   },
   "devDependencies": {
