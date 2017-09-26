@@ -14,8 +14,6 @@ module.exports = function (render, element) {
   let initialized = false;
 
   return function (state, update) {
-    // convert immutable state to JS object
-    state = state.toJS();
     if (!initialized) {
       // set up the dom delegator to delegate DOM events.
       // it's okay to run this multiple times, as DOM delegator

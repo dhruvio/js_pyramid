@@ -34,12 +34,12 @@ function component (h, log) {
   ];
 
   function render (state, update) {
-    log.info("render", state);
+    log.info("render", state.toJS());
     return h("section", [
       h("button", {
         "ev-click": () => update("decrement")
       }, ["-"]),
-      state.counter,
+      state.get("counter"),
       h("button", {
         "ev-click": () => update("increment")
       }, ["+"])
