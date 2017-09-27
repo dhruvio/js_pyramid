@@ -49,7 +49,7 @@ const app = {
 
   // we render a simple DOM tree that displays the state
   // in a list
-  render: function (state, update) {
+  render (state, update) {
     return h("ul#main", [
       h("li", [ "lastFrame: " + state.get("lastFrame") ]),
       h("li", [ "numFrames: " + state.get("numFrames") ])
