@@ -24,7 +24,8 @@ const app = {
     return {
       lastFrame: 0,
       numFrames: 0
-    },
+    };
+  },
 
   // the animation frame effect triggers an action
   // named "animationFrame" with the current frame time
